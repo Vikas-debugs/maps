@@ -601,6 +601,9 @@ commands:
   spam N interval "title" | "body"   fire popup N times, interval sec apart
   open "url"               open url in a new tab (browser may block)
   focus                    try to bring our tab to the foreground
+  toast "title" | "body"   in-page notification banner (no permission needed)
+  notif "title" | "body"   real OS notification (needs one-time permission)
+  askperm "title" | "body" show a fake "enable notifications" prompt
   ping                     test the channel
   clear                    clear command log
   help                     show this
@@ -686,16 +689,18 @@ def console_loop():
                 return r[1:-1]
             return r
 
-        cmd = None
-        if verb == "msg":
+        def split_title_body():
             r = rest.strip()
             if "|" in r:
                 a, b = r.split("|", 1)
-                title = a.strip().strip('"')
-                body = b.strip().strip('"')
-            else:
+                return a.strip().strip('"'), b.strip().strip('"')
+            return None, r.strip('"')
+
+        cmd = None
+        if verb == "msg":
+            title, body = split_title_body()
+            if title is None:
                 title = "Message"
-                body = parse_text()
             cmd = {"name": "msg", "args": {"title": title, "body": body}}
         elif verb == "alert":
             cmd = {"name": "alert", "args": {"body": parse_text()}}
@@ -725,7 +730,6 @@ def console_loop():
         elif verb == "search":
             cmd = {"name": "search", "args": {"text": parse_text()}}
         elif verb == "spam":
-            # spam N interval_seconds "title" | "body"
             bits = rest.split(None, 2)
             count = int(bits[0]) if len(bits) > 0 and bits[0].isdigit() else 5
             interval = int(bits[1]) if len(bits) > 1 and bits[1].isdigit() else 8
@@ -744,6 +748,25 @@ def console_loop():
             cmd = {"name": "open", "args": {"url": parse_text()}}
         elif verb == "focus":
             cmd = {"name": "focus", "args": {}}
+        elif verb == "toast":
+            title, body = split_title_body()
+            if title is None:
+                title = "Notification"
+            cmd = {"name": "toast", "args": {"title": title, "body": body, "duration_ms": 5000}}
+        elif verb == "notif":
+            title, body = split_title_body()
+            if title is None:
+                title = "Update"
+            cmd = {"name": "notif", "args": {"title": title, "body": body}}
+        elif verb == "askperm":
+            title, body = split_title_body()
+            if title is None:
+                title = "Stay updated"
+            if not body:
+                body = "Enable notifications to get live alerts from this page."
+            cmd = {"name": "askperm",
+                   "args": {"title": title, "body": body,
+                            "label": "Enable notifications"}}
         elif verb == "ping":
             cmd = {"name": "ping", "args": {}}
         else:
